@@ -65,6 +65,25 @@ function Fruits() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
+  // Handle different status formats consistently
+  const normalizeStatus = (status) => {
+    const value = String(status).trim().toLowerCase();
+
+    if (value === 'available' || value === 'active') {
+      return 'Available';
+    }
+
+    return 'Unavailable';
+  };
+
+  const availableFruits = fruits.filter(
+    fruit => normalizeStatus(fruit.status) === 'Available'
+  ).length;
+
+  const unavailableFruits = fruits.filter(
+    fruit => normalizeStatus(fruit.status) === 'Unavailable'
+  ).length;
+
   const handleChange = (e) => {
     setFormData({
       ...formData,
@@ -79,7 +98,8 @@ function Fruits() {
       ...formData,
       small_price: Number(formData.small_price),
       medium_price: Number(formData.medium_price),
-      large_price: Number(formData.large_price)
+      large_price: Number(formData.large_price),
+      status: normalizeStatus(formData.status)
     };
 
     if (editingId) {
@@ -107,7 +127,7 @@ function Fruits() {
       small_price: fruit.small_price,
       medium_price: fruit.medium_price,
       large_price: fruit.large_price,
-      status: fruit.status
+      status: normalizeStatus(fruit.status)
     });
 
     setEditingId(fruit.fruit_id);
@@ -116,7 +136,9 @@ function Fruits() {
 
   const handleDelete = (id) => {
     if (window.confirm('Are you sure you want to delete this fruit?')) {
-      setFruits(fruits.filter((fruit) => fruit.fruit_id !== id));
+      setFruits(fruits.filter(
+        fruit => fruit.fruit_id !== id
+      ));
     }
   };
 
@@ -126,6 +148,7 @@ function Fruits() {
 
   return (
     <div className="fruits-page">
+
       <div className="fruits-header">
         <div>
           <h1>Fruits</h1>
@@ -144,35 +167,45 @@ function Fruits() {
         </button>
       </div>
 
+      {/* Fruit Summary */}
       <div className="fruit-summary">
+
         <div>
           <span>Total Fruits</span>
           <h2>{fruits.length}</h2>
         </div>
+
         <div>
-          <span>Active Fruits</span>
-          <h2>{fruits.filter(f => f.status === 'ACTIVE').length}</h2>
+          <span>Available Fruits</span>
+          <h2>{availableFruits}</h2>
         </div>
+
         <div>
-          <span>Inactive Fruits</span>
-          <h2>{fruits.filter(f => f.status === 'INACTIVE').length}</h2>
+          <span>Unavailable Fruits</span>
+          <h2>{unavailableFruits}</h2>
         </div>
+
       </div>
 
+      {/* Search */}
       <div className="fruit-toolbar">
         <div className="search-box">
           <Search size={18} />
+
           <input
             placeholder="Search fruits..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
         <span>{filteredFruits.length} fruits found</span>
       </div>
 
+      {/* Fruit Table */}
       <div className="fruit-table-container">
         <table className="fruit-table">
+
           <thead>
             <tr>
               <th>Fruit Name</th>
@@ -186,36 +219,61 @@ function Fruits() {
           </thead>
 
           <tbody>
-            {filteredFruits.map((fruit) => (
-              <tr key={fruit.fruit_id}>
-                <td><strong>{fruit.fruit_name}</strong></td>
-                <td>{fruit.description}</td>
-                <td>M{Number(fruit.small_price).toFixed(2)}</td>
-                <td>M{Number(fruit.medium_price).toFixed(2)}</td>
-                <td>M{Number(fruit.large_price).toFixed(2)}</td>
-                <td>
-                  <span className={`fruit-status ${fruit.status.toLowerCase()}`}>
-                    {fruit.status}
-                  </span>
-                </td>
-                <td>
-                  <div className="table-actions">
-                    <button
-                      className="edit-button"
-                      onClick={() => handleEdit(fruit)}
-                    >
-                      <Pencil size={16} />
-                    </button>
-                    <button
-                      className="delete-button"
-                      onClick={() => handleDelete(fruit.fruit_id)}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filteredFruits.map((fruit) => {
+              const status = normalizeStatus(fruit.status);
+
+              return (
+                <tr key={fruit.fruit_id}>
+
+                  <td>
+                    <strong>{fruit.fruit_name}</strong>
+                  </td>
+
+                  <td>{fruit.description}</td>
+
+                  <td>
+                    M{Number(fruit.small_price).toFixed(2)}
+                  </td>
+
+                  <td>
+                    M{Number(fruit.medium_price).toFixed(2)}
+                  </td>
+
+                  <td>
+                    M{Number(fruit.large_price).toFixed(2)}
+                  </td>
+
+                  <td>
+                    <span className={`fruit-status ${status.toLowerCase()}`}>
+                      {status}
+                    </span>
+                  </td>
+
+                  <td>
+                    <div className="table-actions">
+
+                      <button
+                        className="edit-button"
+                        onClick={() => handleEdit(fruit)}
+                        title="Edit Fruit"
+                      >
+                        <Pencil size={16} />
+                      </button>
+
+                      <button
+                        className="delete-button"
+                        onClick={() => handleDelete(fruit.fruit_id)}
+                        title="Delete Fruit"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+
+                    </div>
+                  </td>
+
+                </tr>
+              );
+            })}
 
             {filteredFruits.length === 0 && (
               <tr>
@@ -224,27 +282,40 @@ function Fruits() {
                 </td>
               </tr>
             )}
+
           </tbody>
         </table>
       </div>
 
+      {/* Add / Edit Fruit Modal */}
       {showForm && (
         <div className="modal-overlay">
+
           <div className="supplier-modal">
+
             <div className="modal-header">
               <div>
-                <h2>{editingId ? 'Edit Fruit' : 'Add New Fruit'}</h2>
+                <h2>
+                  {editingId ? 'Edit Fruit' : 'Add New Fruit'}
+                </h2>
+
                 <p>Enter fruit details and packaging prices.</p>
               </div>
+
               <button
                 className="close-button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                  setFormData(emptyForm);
+                }}
               >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleSubmit}>
+
               <label>Fruit Name</label>
               <input
                 name="fruit_name"
@@ -301,26 +372,35 @@ function Fruits() {
                 value={formData.status}
                 onChange={handleChange}
               >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
+                <option value="Available">Available</option>
+                <option value="Unavailable">Unavailable</option>
               </select>
 
               <div className="modal-actions">
+
                 <button
                   type="button"
                   className="cancel-button"
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingId(null);
+                    setFormData(emptyForm);
+                  }}
                 >
                   Cancel
                 </button>
+
                 <button type="submit" className="primary-button">
                   {editingId ? 'Update Fruit' : 'Save Fruit'}
                 </button>
+
               </div>
+
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }

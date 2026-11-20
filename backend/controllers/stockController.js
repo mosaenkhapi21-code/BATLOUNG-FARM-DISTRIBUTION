@@ -1,63 +1,38 @@
+const stockModel = require('../models/stockModel');
+const asyncHandler = require('../middleware/asyncHandler');
 
-const { db } = require('../config/db');
+exports.getStock = asyncHandler(async (req, res) => {
+    res.status(200).json(await stockModel.getAllStock());
+});
 
-exports.getStock = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            `SELECT st.stock_id, st.fruit_id, f.fruit_name,
-                    st.packaging_size, st.available_quantity
-             FROM stock st
-             JOIN fruits f ON st.fruit_id = f.fruit_id
-             ORDER BY f.fruit_name, st.packaging_size`
-        );
+exports.getStockByFruit = asyncHandler(async (req, res) => {
+    const stock = await stockModel.getStockByFruit(req.params.fruit_id);
 
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!stock.length) {
+        return res.status(404).json({ message: 'No stock records found for this fruit' });
     }
-};
 
-exports.getStockByFruit = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            `SELECT st.*, f.fruit_name
-             FROM stock st
-             JOIN fruits f ON st.fruit_id = f.fruit_id
-             WHERE st.fruit_id = ?
-             ORDER BY st.packaging_size`,
-            [req.params.fruit_id]
-        );
+    res.status(200).json(stock);
+});
 
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+exports.getLowStock = asyncHandler(async (req, res) => {
+    const threshold = Number(req.query.threshold ?? 10);
+
+    res.status(200).json({
+        threshold,
+        low_stock_items: await stockModel.getLowStock(threshold)
+    });
+});
+
+exports.updateStock = asyncHandler(async (req, res) => {
+    const updated = await stockModel.updateStockQuantity(
+        req.params.id,
+        Number(req.body.available_quantity)
+    );
+
+    if (!updated) {
+        return res.status(404).json({ message: 'Stock record not found' });
     }
-};
 
-exports.getLowStock = async (req, res) => {
-    try {
-        const threshold = Number(req.query.threshold ?? 20);
-
-        if (!Number.isInteger(threshold) || threshold < 0) {
-            return res.status(400).json({
-                message: 'Threshold must be a non-negative whole number'
-            });
-        }
-
-        const [rows] = await db.query(
-            `SELECT st.*, f.fruit_name
-             FROM stock st
-             JOIN fruits f ON st.fruit_id = f.fruit_id
-             WHERE st.available_quantity <= ?
-             ORDER BY st.available_quantity ASC`,
-            [threshold]
-        );
-
-        res.json({
-            threshold,
-            low_stock_items: rows
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
+    res.status(200).json({ message: 'Stock quantity updated successfully' });
+});

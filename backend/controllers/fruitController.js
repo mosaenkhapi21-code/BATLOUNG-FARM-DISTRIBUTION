@@ -1,91 +1,60 @@
+const fruitModel = require('../models/fruitModel');
+const asyncHandler = require('../middleware/asyncHandler');
 
-const { db } = require('../config/db');
+exports.getFruits = asyncHandler(async (req, res) => {
+    const status = req.query.status;
 
-exports.getFruits = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            'SELECT * FROM fruits ORDER BY fruit_id DESC'
-        );
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (status && !['ACTIVE', 'INACTIVE'].includes(status)) {
+        return res.status(400).json({ message: 'Invalid fruit status filter' });
     }
-};
 
-exports.getFruit = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            'SELECT * FROM fruits WHERE fruit_id = ?',
-            [req.params.id]
-        );
+    res.status(200).json(await fruitModel.getAllFruits(status));
+});
 
-        if (!rows.length) {
-            return res.status(404).json({ message: 'Fruit not found' });
-        }
+exports.getAvailableFruits = asyncHandler(async (req, res) => {
+    res.status(200).json(await fruitModel.getAllFruits('ACTIVE'));
+});
 
-        res.json(rows[0]);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+exports.getFruit = asyncHandler(async (req, res) => {
+    const fruit = await fruitModel.getFruitById(req.params.id);
+
+    if (!fruit) {
+        return res.status(404).json({ message: 'Fruit not found' });
     }
-};
 
-exports.createFruit = async (req, res) => {
-    try {
-        const { fruit_name, description, status } = req.body;
+    res.status(200).json(fruit);
+});
 
-        if (!fruit_name) {
-            return res.status(400).json({ message: 'Fruit name is required' });
-        }
+exports.createFruit = asyncHandler(async (req, res) => {
+    const fruitId = await fruitModel.createFruit(req.body);
+    const fruit = await fruitModel.getFruitById(fruitId);
 
-        const fruitStatus = status || 'ACTIVE';
+    res.status(201).json({
+        message: 'Fruit created successfully',
+        fruit_id: fruitId,
+        fruit
+    });
+});
 
-        if (!['ACTIVE', 'INACTIVE'].includes(fruitStatus)) {
-            return res.status(400).json({ message: 'Invalid fruit status' });
-        }
+exports.updateFruit = asyncHandler(async (req, res) => {
+    const fruit = await fruitModel.updateFruit(req.params.id, req.body);
 
-        const [result] = await db.query(
-            `INSERT INTO fruits (fruit_name, description, status)
-             VALUES (?, ?, ?)`,
-            [fruit_name, description || null, fruitStatus]
-        );
-
-        res.status(201).json({
-            message: 'Fruit created successfully',
-            fruit_id: result.insertId
-        });
-    } catch (error) {
-        res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500)
-            .json({ message: error.message });
+    if (!fruit) {
+        return res.status(404).json({ message: 'Fruit not found' });
     }
-};
 
-exports.updateFruit = async (req, res) => {
-    try {
-        const { fruit_name, description, status } = req.body;
+    res.status(200).json({
+        message: 'Fruit updated successfully',
+        fruit
+    });
+});
 
-        if (!fruit_name) {
-            return res.status(400).json({ message: 'Fruit name is required' });
-        }
+exports.deleteFruit = asyncHandler(async (req, res) => {
+    const deleted = await fruitModel.deleteFruit(req.params.id);
 
-        const fruitStatus = status || 'ACTIVE';
-
-        if (!['ACTIVE', 'INACTIVE'].includes(fruitStatus)) {
-            return res.status(400).json({ message: 'Invalid fruit status' });
-        }
-
-        const [result] = await db.query(
-            `UPDATE fruits SET fruit_name = ?, description = ?, status = ?
-             WHERE fruit_id = ?`,
-            [fruit_name, description || null, fruitStatus, req.params.id]
-        );
-
-        if (!result.affectedRows) {
-            return res.status(404).json({ message: 'Fruit not found' });
-        }
-
-        res.json({ message: 'Fruit updated successfully' });
-    } catch (error) {
-        res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500)
-            .json({ message: error.message });
+    if (!deleted) {
+        return res.status(404).json({ message: 'Fruit not found' });
     }
-};
+
+    res.status(200).json({ message: 'Fruit deleted successfully' });
+});

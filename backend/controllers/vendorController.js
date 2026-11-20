@@ -1,97 +1,67 @@
+const vendorModel = require('../models/vendorModel');
+const asyncHandler = require('../middleware/asyncHandler');
 
-const { db } = require('../config/db');
+exports.getVendors = asyncHandler(async (req, res) => {
+    res.status(200).json(await vendorModel.getAllVendors());
+});
 
-exports.getVendors = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            'SELECT * FROM vendors ORDER BY vendor_id DESC'
-        );
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+exports.getVendor = asyncHandler(async (req, res) => {
+    const vendor = await vendorModel.getVendorById(req.params.id);
+
+    if (!vendor) {
+        return res.status(404).json({ message: 'Vendor not found' });
     }
-};
 
-exports.getVendor = async (req, res) => {
-    try {
-        const [rows] = await db.query(
-            'SELECT * FROM vendors WHERE vendor_id = ?',
-            [req.params.id]
-        );
+    res.status(200).json(vendor);
+});
 
-        if (!rows.length) {
-            return res.status(404).json({ message: 'Vendor not found' });
-        }
+exports.searchVendors = asyncHandler(async (req, res) => {
+    const searchTerm = typeof req.query.q === 'string' ? req.query.q.trim() : '';
 
-        res.json(rows[0]);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    if (!searchTerm) {
+        return res.status(400).json({ message: 'Search term is required' });
     }
-};
 
-exports.searchVendors = async (req, res) => {
-    try {
-        const search = `%${req.query.q || ''}%`;
+    res.status(200).json(await vendorModel.searchVendors(searchTerm));
+});
 
-        const [rows] = await db.query(
-            `SELECT * FROM vendors
-             WHERE vendor_name LIKE ? OR phone_number LIKE ?
-             OR location LIKE ?
-             ORDER BY vendor_name`,
-            [search, search, search]
-        );
+exports.createVendor = asyncHandler(async (req, res) => {
+    const payload = {
+        ...req.body,
+        registration_date: req.body.registration_date || new Date().toISOString().slice(0, 10)
+    };
 
-        res.json(rows);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
+    const vendorId = await vendorModel.createVendor(payload);
+    const vendor = await vendorModel.getVendorById(vendorId);
+
+    res.status(201).json({
+        message: 'Vendor created successfully',
+        vendor_id: vendorId,
+        vendor
+    });
+});
+
+exports.updateVendor = asyncHandler(async (req, res) => {
+    const existing = await vendorModel.getVendorById(req.params.id);
+
+    if (!existing) {
+        return res.status(404).json({ message: 'Vendor not found' });
     }
-};
 
-exports.createVendor = async (req, res) => {
-    try {
-        const { vendor_name, phone_number, location } = req.body;
+    const vendor = await vendorModel.updateVendor(req.params.id, req.body);
 
-        if (!vendor_name || !phone_number || !location) {
-            return res.status(400).json({ message: 'All fields are required' });
-        }
+    res.status(200).json({
+        message: 'Vendor updated successfully',
+        vendor
+    });
+});
 
-        const [result] = await db.query(
-            `INSERT INTO vendors (vendor_name, phone_number, location)
-             VALUES (?, ?, ?)`,
-            [vendor_name, phone_number, location]
-        );
+exports.deleteVendor = asyncHandler(async (req, res) => {
+    const deleted = await vendorModel.deleteVendor(req.params.id);
 
-        res.status(201).json({
-            message: 'Vendor created successfully',
-            vendor_id: result.insertId
-        });
-    } catch (error) {
-        res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500)
-            .json({ message: error.message });
+    if (!deleted) {
+        return res.status(404).json({ message: 'Vendor not found' });
     }
-};
 
-exports.updateVendor = async (req, res) => {
-    try {
-        const { vendor_name, phone_number, location } = req.body;
-
-        if (!vendor_name || !phone_number || !location) {
-            return res.status(400).json({ message: 'All fields are required' });
-        }
-
-        const [result] = await db.query(
-            `UPDATE vendors SET vendor_name = ?, phone_number = ?, location = ?
-             WHERE vendor_id = ?`,
-            [vendor_name, phone_number, location, req.params.id]
-        );
-
-        if (!result.affectedRows) {
-            return res.status(404).json({ message: 'Vendor not found' });
-        }
-
-        res.json({ message: 'Vendor updated successfully' });
-    } catch (error) {
-        res.status(error.code === 'ER_DUP_ENTRY' ? 409 : 500)
-            .json({ message: error.message });
-    }
-};
+    res.status(200).json({ message: 'Vendor deleted successfully' });
+});
